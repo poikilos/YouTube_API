@@ -72,11 +72,11 @@ channels_response = youtube.channels().list(
 
 uploads_list_id = list("PL3NszaL-ztEDs89mEbqx6UoSBa9ezi4r9")
 
-def loop_list(playlistId):
+def loop_list(playlistId,key):
   video_urls = []
   page = 1
 
-  while page<3:
+  while page<5:
     if page==1:
         playlistitems_list_request = youtube.playlistItems().list(
           playlistId=playlistId,
@@ -86,8 +86,10 @@ def loop_list(playlistId):
 
         for playlist_item in playlistitems_list_request["items"]:
           video_id = playlist_item["snippet"]["resourceId"]["videoId"]
-          video_urls.append("https://www.youtube.com/watch?v=%s" % video_id)
-        
+          video_name = unicode(playlist_item["snippet"]["title"]).encode('ascii', 'replace').replace(",","")
+          video_urls.append("https://www.youtube.com/watch?v=%s,%s,%s" % (video_id, key, video_name))
+          print video_name
+
         nextpage = playlistitems_list_request["nextPageToken"]
 
     elif page==4:
@@ -100,7 +102,9 @@ def loop_list(playlistId):
 
         for playlist_item in playlistitems_list_request["items"]:
           video_id = playlist_item["snippet"]["resourceId"]["videoId"]
-          video_urls.append("https://www.youtube.com/watch?v=%s" % video_id)
+          video_name = unicode(playlist_item["snippet"]["title"]).encode('ascii', 'replace').replace(",","")
+          video_urls.append("https://www.youtube.com/watch?v=%s,%s,%s" % (video_id, key, video_name))
+          print video_name
 
     else:
         playlistitems_list_request = youtube.playlistItems().list(
@@ -112,9 +116,12 @@ def loop_list(playlistId):
 
         for playlist_item in playlistitems_list_request["items"]:
           video_id = playlist_item["snippet"]["resourceId"]["videoId"]
-          video_urls.append("https://www.youtube.com/watch?v=%s" % video_id)
+          video_name = unicode(playlist_item["snippet"]["title"]).encode('ascii', 'replace').replace(",","")
+          video_urls.append("https://www.youtube.com/watch?v=%s,%s,%s" % (video_id, key, video_name))
+          print video_name
 
         nextpage = playlistitems_list_request["nextPageToken"]
+
     page+=1
 
   return video_urls
@@ -124,8 +131,9 @@ URls = []
 def get_playlist(playlistIds):
   for key, value in playlistIds.iteritems():
       count = 1
-      for x in loop_list(value):
-        URls.append((x,key))
+      print key
+      for x in loop_list(value,key):
+        URls.append(x)
         count+=1
 
 playlistIds = {
@@ -141,9 +149,9 @@ playlistIds = {
 get_playlist(playlistIds)
 
 
-f = open('urls','w')
+f = open('urls.csv','w')
 
 for x in URls:
-  f.write('%s,%s \n' % (x[1],x[0])) # python will convert \n to os.linesep
+  f.write('%s\n' % (x)) # python will convert \n to os.linesep
 
 f.close() # you can omit in most cases as the destructor will call it
