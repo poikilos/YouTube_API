@@ -11,6 +11,9 @@ from oauth2client.client import flow_from_clientsecrets
 from oauth2client.file import Storage
 from oauth2client.tools import argparser, run_flow
 
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+import datetime
 
 # The CLIENT_SECRETS_FILE variable specifies the name of a file that contains
 # the OAuth 2.0 information for this application, including its client_id and
@@ -149,9 +152,12 @@ playlistIds = {
 get_playlist(playlistIds)
 
 
-f = open('urls.csv','w')
+f = open('urls_%s.csv' % datetime.datetime.now(),'w')
 
 for x in URls:
   f.write('%s\n' % (x)) # python will convert \n to os.linesep
 
 f.close() # you can omit in most cases as the destructor will call it
+
+
+
