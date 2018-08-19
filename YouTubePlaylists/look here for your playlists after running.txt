@@ -1,0 +1,3 @@
+After a successful run, a new csv file should appear here.
+If not, try the location shown in the end of the output of the program
+(such as folder with this one's name in Current Working Directory).
