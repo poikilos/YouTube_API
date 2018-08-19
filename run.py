@@ -26,7 +26,10 @@ import datetime
 # For more information about the client_secrets.json file format, see:
 #     https://developers.google.com/api-client-library/python/guide/aaa_client_secrets
 CLIENT_SECRETS_FILE = "client_secrets.json"
-
+# whatever is first is default:
+valid_settings = {
+    "fmt":['m3u', 'csv']
+}
 # This variable defines a message to display if the CLIENT_SECRETS_FILE is
 # missing.
 MISSING_CLIENT_SECRETS_MESSAGE = """
@@ -90,8 +93,8 @@ def to_csv_field(s):
     return s
 
 
-def loop_list(playlistId, key):
-    video_urls = []
+def get_playlist(playlistId, playlistName):
+    records = []
     page = 1
     nextpage = True
     entry_n = 1
@@ -118,30 +121,29 @@ def loop_list(playlistId, key):
                 # Python 3 (unicode replaced by str, str by bytes)
                 video_name = str(item["snippet"]["title"]).replace(
                                  ",", "")
-            video_urls.append("https://www.youtube.com/watch?v=" +
-                              to_csv_field(video_id) + "," +
-                              to_csv_field(key) + ", " +
-                              to_csv_field(video_name))
+            record = {}
+            record['URL'] = ("https://www.youtube.com/watch?v=" +
+                             video_id)
+            record['Parent'] = playlistName
+            record['Name'] = video_name
+            records.append(record)
             print(str(entry_n) + ". " + video_name)
             entry_n += 1
 
         nextpage = playlistitems_list_request.get("nextPageToken")
         page += 1
 
-    return video_urls
+    return records
 
-csvLines = []
+playlists = {}
 
 
-def get_playlist(playlistIds):
+def get_all_playlists(playlistIds):
     print("")
-    for key, value in playlistIds.items():
-        count = 1
+    for playlistName, playListId in playlistIds.items():
         print("")
-        print("## " + key + ":")
-        for x in loop_list(value, key):
-            csvLines.append(x)
-            count += 1
+        print("## " + playlistName + ":")
+        playlists[playlistName] = get_playlist(playListId, playlistName)
 
 playlistIds = {}
 
@@ -207,6 +209,40 @@ def decodeYamlStr(s):
                 ret = s_strip
     return ret
 
+conf_path = "YouTube_API.conf"
+settings = {}
+if os.path.isfile(conf_path):
+    ins = open(conf_path)
+    line = True
+    while line:
+        line = ins.readline()
+        if line:
+            line_strip = line.strip()
+            if len(line_strip) < 1:
+                continue
+            elif line_strip[0] == '#':
+                continue
+            sign_i = line_strip.find("=")
+            if sign_i > 0:
+                k = line_strip[:sign_i].strip()
+                if len(k) > 0:
+                    v = line_strip[sign_i+1:].strip()
+                    settings[k] = v
+    ins.close()
+
+for k,v in settings.items():
+    valid_l = valid_settings.get(k)
+    if valid_l is not None:
+        if v not in valid_l:
+            print("invalid setting for " + k +
+                  " (should be one of: " + str(valid_l) + ")")
+    else:
+        print("invalid setting " + k)
+
+for k,valid_l in valid_settings.items():
+    if k not in settings:
+        settings[k] = valid_l[0]
+
 playlists_path = "playlists.yml"
 if os.path.isfile(playlists_path):
     ins = open(playlists_path)
@@ -251,18 +287,47 @@ else:
 print("Using the following BesideTheVoid playlists:")
 print(str(playlistIds))
 
-get_playlist(playlistIds)
+get_all_playlists(playlistIds)
 
-out_name = "urls_" + str(datetime.datetime.now()) + ".csv"
+out_name_part1 = "urls_" + str(datetime.datetime.now())
 data_path = "YouTubePlaylists"
-out_path = os.path.join(data_path, out_name)
 if not os.path.isdir(data_path):
     os.makedirs(data_path)
+out_path = None
 # print("#Writing '" + out_path + "...")
-f = open(out_path, 'w')
-
-for x in csvLines:
-    f.write(x + '\n')    # python will convert \n to os.linesep
-
-f.close()
-print("#finished writing " + os.path.abspath(out_path))
+csv_cols = ["URL", "Playlist", "Name"]
+csv_parent = "Playlist"
+if settings['fmt'] == 'csv':
+    out_name = out_name_part1 + ".csv"
+    out_path = os.path.join(data_path, out_name)
+    f = open(out_path, 'w')
+    for playlistName,playlist in playlists.items():
+        for record in playlist:
+            line = ""
+            sep = ""
+            for k,v_orig in record.items():
+                v = v_orig
+                if k == csv_parent:
+                    v = playlistName
+                line += sep + to_csv_field(v)
+                sep = ","
+            f.write(line + '\n')    # python will convert \n to os.linesep
+    f.close()
+elif settings['fmt'] == 'm3u':
+    for playlistName,playlist in playlists.items():
+        out_name = playlistName + ".m3u"
+        out_path = os.path.join(data_path, out_name)
+        f = open(out_path, 'w')
+        f.write("#EXTM3U\n")
+        time_s = ""  # #of seconds, normally unknown in this situation
+        for record in playlist:
+            f.write("#EXTINF:" + time_s + record["Name"] + "\n")
+            f.write(record["URL"] + "\n")
+        f.close()
+        print("#finished writing " + os.path.abspath(out_path))
+else:
+    print("Unknown fmt setting " + str(settings.get('fmt')))
+if out_path is not None:
+    print("#finished writing " + os.path.abspath(out_path))
+else:
+    print("#nothing written")

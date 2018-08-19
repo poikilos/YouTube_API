@@ -1,3 +1,4 @@
+*.m3u
 run.py-oauth2.json
 auth.json
 *.csv
